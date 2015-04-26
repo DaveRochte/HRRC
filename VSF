@@ -1,0 +1,133 @@
+Imports System.IO
+Imports System.IO.Ports
+Imports System.Threading
+
+Public Class Form1
+    Shared _serialPort As SerialPort
+    Dim Heading As String = "AP1"
+    Dim HeadingEnd As String = ";"
+    Dim Execute As String = "AM1;"
+    Dim SendPoll As String = "AI1;"
+
+    Dim IncomingFirst As String
+    Dim IncomingSecond As String
+    Dim IncomingThird As String
+    Dim IncomingFourth As String
+    Dim ReturnedAzimuth As String
+    Dim HexAzimuth As String
+    Dim HexAzimuthFull As String
+
+    Private Sub Button1_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles Button1.Click
+        Dim oRead As System.IO.StreamReader
+        oRead = IO.File.OpenText(TextBox3.Text)                'Text file I/O operation for manually updating
+        While oRead.Peek <> -1
+            RichTextBox2.Text = oRead.ReadToEnd
+            TextBox4.Text = Heading + RichTextBox2.Text + HeadingEnd + Execute
+        End While
+        oRead.Close()
+
+        SerialPort1.Close()                                     'serialport initial setup
+        SerialPort1.PortName = "COM3"                           'change com port to match rotator card port
+        SerialPort1.BaudRate = 4800                             'per suggested settings from Control Protocol sheet
+        SerialPort1.DataBits = 8                                'per suggested settings from Control Protocol sheet
+        SerialPort1.Parity = Parity.None                        'per suggested settings from Control Protocol sheet
+        SerialPort1.StopBits = StopBits.One                     'per suggested settings from Control Protocol sheet
+        SerialPort1.Handshake = Handshake.None
+        SerialPort1.Encoding = System.Text.Encoding.Default     'very important!
+
+        SerialPort1.Open()                                              'opens serialport
+        SerialPort1.Write(Heading + RichTextBox2.Text + HeadingEnd)     'sends heading, 3-digit degrees value, and carriage return to sdx interface card
+        SerialPort1.Write(Execute)                                      'sends execute command to sdx interface card, moves antenna
+        Thread.Sleep(500)                                               'delays for half a second
+        SerialPort1.Close()                                             'closes the serialport
+    End Sub
+
+    Private Sub Button2_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles Button2.Click
+        SerialPort1.Close()
+        SerialPort1.PortName = "COM3"                           'change com port to match rotator card port
+        SerialPort1.BaudRate = 4800                             'per suggested settings from Control Protocol sheet
+        SerialPort1.DataBits = 8                                'per suggested settings from Control Protocol sheet
+        SerialPort1.Parity = Parity.None                        'per suggested settings from Control Protocol sheet
+        SerialPort1.StopBits = StopBits.One                     'per suggested settings from Control Protocol sheet
+        SerialPort1.Handshake = Handshake.None
+        SerialPort1.Encoding = System.Text.Encoding.Default     'very important!
+
+        SerialPort1.Open()                                      'opens serialport
+        SerialPort1.Write(SendPoll)                             'Sends poll command with carriage return as execution command
+
+        IncomingFirst = SerialPort1.ReadByte()                  'receives and stores first bit of immediately returned data, should be a semicolon (;)
+        IncomingSecond = SerialPort1.ReadByte()                 'receives and stores second bit of returned data, first digit of polled azimuth
+        IncomingThird = SerialPort1.ReadByte()                  'receives and stores third bit of returned data, second digit of polled azimuth
+        IncomingFourth = SerialPort1.ReadByte()                 'receives and stores fourth bit of returned data, third digit of polled azimuth
+
+        HexAzimuthFull = IncomingFirst + IncomingSecond + IncomingThird + IncomingFourth
+        HexAzimuth = IncomingSecond + IncomingThird + IncomingFourth    'stores the 3-digits corresponding to the polled azimuth value
+        RichTextBox1.Text = Chr(ReturnedAzimuth)                        'ever important conversion to readable 3-digit number, in degrees
+        TextBox2.Text = HexAzimuth                                      'displays returned value, raw hex, before conversion to ascii
+        TextBox5.Text = SendPoll + HexAzimuthFull
+
+        Dim oWrite As System.IO.StreamWriter
+        oWrite = My.Computer.FileSystem.OpenTextFileWriter(TextBox1.Text, False)    'False flag sets overwrite (True to append text file)
+        oWrite.WriteLine(RichTextBox1.Text)
+        oWrite.Close()
+        oWrite.Close()
+    End Sub
+
+    Private Sub Button3_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles Button3.Click
+        Dim FileOpen As New System.Windows.Forms.OpenFileDialog     'Pointing to proper Ham_current text file
+        Dim retVal As DialogResult
+        Dim MyFile As String
+
+        retVal = FileOpen.ShowDialog()
+        If retVal = Windows.Forms.DialogResult.OK Then
+            MyFile = FileOpen.FileName
+            TextBox3.Text = MyFile
+        End If
+    End Sub
+
+    Private Sub Button4_Click(sender As System.Object, e As System.EventArgs) Handles Button4.Click
+        Dim FileOpen As New System.Windows.Forms.OpenFileDialog     'Pointing to proper Ham_goto text file
+        Dim retVal As DialogResult
+        Dim MyFile As String
+
+        retVal = FileOpen.ShowDialog()
+        If retVal = Windows.Forms.DialogResult.OK Then
+            MyFile = FileOpen.FileName
+            TextBox1.Text = MyFile
+        End If
+    End Sub
+
+    Private Sub Button5_Click(sender As System.Object, e As System.EventArgs) Handles Button5.Click
+        Timer1.Start()                                          'Begins automatic monitoring and updating of interfacing text files
+    End Sub
+
+    Private Sub Timer1_Tick(sender As System.Object, e As System.EventArgs) Handles Timer1.Tick
+        'Automatic update process
+
+        Dim oRead As System.IO.StreamReader
+        oRead = IO.File.OpenText(TextBox3.Text)                'Text file I/O operation for manually updating
+        While oRead.Peek <> -1
+            RichTextBox2.Text = oRead.ReadToEnd
+            TextBox4.Text = Heading + RichTextBox2.Text + HeadingEnd + Execute
+        End While
+        oRead.Close()
+
+
+
+        TextBox5.Text = SendPoll + HexAzimuthFull
+
+        Dim oWrite As System.IO.StreamWriter
+        oWrite = My.Computer.FileSystem.OpenTextFileWriter(TextBox1.Text, False)    'False flag sets overwrite (True to append text file)
+        oWrite.WriteLine(RichTextBox1.Text)
+        oWrite.Close()
+        oWrite.Close()
+    End Sub
+
+    Private Sub Button6_Click(sender As System.Object, e As System.EventArgs) Handles Button6.Click
+        Timer1.Stop()
+    End Sub
+
+    Private Sub Button7_Click(sender As System.Object, e As System.EventArgs) Handles Button7.Click
+        End
+    End Sub
+End Class
